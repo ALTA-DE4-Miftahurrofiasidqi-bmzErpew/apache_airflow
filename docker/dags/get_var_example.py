@@ -12,35 +12,32 @@ def get_var_func():
     # Returns the value of default_var (None) if the variable is not set
     program_name_var = Variable.get("program_name")
 
-    print(f'Print variables, program_name {program_name_var}')
-    print(f'Print variables, book_entities  {book_entities_var}')
+    print(f"Print variables, program_name {program_name_var}")
+    print(f"Print variables, book_entities  {book_entities_var}")
+
+    print(f"Print variables: ")
+
 
 def get_var_context_func(**context):
-    return 'Print variables: '
+    return "Print variables: "
 
 
 dag = DAG(
-        'alterra_get_var_examples', 
-        description='Get Var Example DAG',
-        schedule_interval='1 * * * *',
-        start_date=datetime(2022, 10, 21), 
-        catchup=False
-    )
+    "alterra_get_var_examples",
+    description="Get Var Example DAG",
+    schedule_interval="1 * * * *",
+    start_date=datetime(2022, 10, 21),
+    catchup=False,
+)
 
 get_var = PythonOperator(
-    task_id='get_var', 
-    provide_context=True,
-    python_callable=get_var_func, 
-    dag=dag
+    task_id="get_var", provide_context=True, python_callable=get_var_func, dag=dag
 )
 
 
 # get_var_context = PythonOperator(
-#     task_id='get_var_context', 
-#     python_callable=get_var_context_func, 
-#     dag=dag
+#     task_id="get_var_context", python_callable=get_var_context_func, dag=dag
 # )
 
-get_var 
-
+get_var
 # >> get_var_context

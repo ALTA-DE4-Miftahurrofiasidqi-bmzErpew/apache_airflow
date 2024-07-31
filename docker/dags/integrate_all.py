@@ -9,34 +9,36 @@ from airflow.operators.bash import BashOperator
 from docker.types import Mount
 from airflow.operators.email_operator import EmailOperator
 
-default_args = {'owner' : 'airflow'}
+default_args = {"owner": "airflow"}
 
 with DAG(
-    dag_id = 'alterra_integrate_all',
+    dag_id="alterra_integrate_all",
     default_args=default_args,
     schedule=None,
     start_date=datetime(2022, 10, 21),
-    catchup=False
+    catchup=False,
 ) as dag:
 
     start = DummyOperator(task_id="start")
 
     create_table_in_db_task = PostgresOperator(
-        task_id = 'create_table_in_db',
-        sql = ('CREATE TABLE IF NOT EXISTS github_data ' +
-        '(' +
-            'id BIGINT, ' +
-            'type TEXT, ' +
-            'actor JSON, ' +
-            'repo JSON, ' +
-            'payload JSON, ' +
-            'public TEXT, ' +
-            'created_at  TIMESTAMP WITHOUT TIME ZONE, ' +
-            'org JSON ' +
-        ')'),
-        postgres_conn_id='pg_conn_id', 
+        task_id="create_table_in_db",
+        sql=(
+            "CREATE TABLE IF NOT EXISTS github_data "
+            + "("
+            + "id BIGINT, "
+            + "type TEXT, "
+            + "actor JSON, "
+            + "repo JSON, "
+            + "payload JSON, "
+            + "public TEXT, "
+            + "created_at  TIMESTAMP WITHOUT TIME ZONE, "
+            + "org JSON "
+            + ")"
+        ),
+        postgres_conn_id="pg_conn_id",
         autocommit=True,
-        dag=dag
+        dag=dag,
     )
 
     # extract data from url (gz), based on execution date (1 hari)
@@ -51,21 +53,32 @@ with DAG(
         hour = 1
         dataset_file = f"{year}-{month:02}-{day:02}-{hour}"
         print(f"hour:{hour}, file:{dataset_file}")
-        dataset_url = f"https://data.gharchive.org/{year}-{month:02}-{day:02}-{hour}.json.gz"
+        dataset_url = (
+            f"https://data.gharchive.org/{year}-{month:02}-{day:02}-{hour}.json.gz"
+        )
 
-        header = {'User-Agent': 'pandas'}
+        header = {"User-Agent": "pandas"}
 
-        pg_hook = PostgresHook(postgres_conn_id='pg_conn_id')
+        pg_hook = PostgresHook(postgres_conn_id="pg_conn_id")
         engine = pg_hook.get_sqlalchemy_engine()
+        # Tambahkan debug output untuk melihat string koneksi
+        connection_url = engine.url
+        print(f"Connection URL: {connection_url}")
 
         # chunk_size = int(kwargs["CHUNK_SIZE"])
         chunk_size = 5000
-        with pd.read_json(dataset_url, lines=True, storage_options=header, chunksize=chunk_size, compression="gzip") as reader: 
+        with pd.read_json(
+            dataset_url,
+            lines=True,
+            storage_options=header,
+            chunksize=chunk_size,
+            compression="gzip",
+        ) as reader:
             reader
             print(">>>> store data")
             for chunk in reader:
                 df = pd.DataFrame(chunk)
-                
+
                 df.dropna(inplace=True)
 
                 df["id"] = df["id"].astype("Int64")
@@ -73,18 +86,27 @@ with DAG(
                 df["public"] = df["public"].astype("string")
                 df["created_at"] = pd.to_datetime(df["created_at"])
 
-                df["actor"] = df["actor"].apply(lambda x: json.dumps(x)).astype("string")
+                df["actor"] = (
+                    df["actor"].apply(lambda x: json.dumps(x)).astype("string")
+                )
                 df["repo"] = df["repo"].apply(lambda x: json.dumps(x)).astype("string")
-                df["payload"] = df["payload"].apply(lambda x: json.dumps(x)).astype("string")
+                df["payload"] = (
+                    df["payload"].apply(lambda x: json.dumps(x)).astype("string")
+                )
                 df["org"] = df["org"].apply(lambda x: json.dumps(x)).astype("string")
 
-                df.to_sql("github_data", con=engine, if_exists="append", index=False, schema="public", method=None, chunksize=5000)
+                df.to_sql(
+                    "github_data",
+                    con=engine,
+                    if_exists="append",
+                    index=False,
+                    schema="public",
+                    method=None,
+                    chunksize=5000,
+                )
 
     load_data_to_db_task = PythonOperator(
-        task_id='load_data_to_db',
-        python_callable=extract,
-        op_kwargs=None,
-        dag=dag
+        task_id="load_data_to_db", python_callable=extract, op_kwargs=None, dag=dag
     )
 
     # NEXT

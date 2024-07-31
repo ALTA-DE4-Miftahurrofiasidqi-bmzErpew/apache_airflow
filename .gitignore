@@ -3,7 +3,10 @@ docker/dags/__pycache__
 docker/plugins/operators/__pycache__
 *.cfg
 .DS_Store
-.venv
+venv
 logs/*
 docker/dags/logs/
 docker/*.env
+res.json
+gender-api.txt
+__pycache__

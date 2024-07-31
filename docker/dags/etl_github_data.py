@@ -1,6 +1,7 @@
 import pandas as pd
 
-class Extraction():
+
+class Extraction:
     def __init__(self) -> None:
         self.path: str
         self.url: str
@@ -17,17 +18,16 @@ class Extraction():
             self.__read_parquet()
         else:
             pass
-        
+
         self.investigate_schema()
         self.cast_data()
         self.investigate_schema()
-
 
         return self.dataframe
 
     def __ext_checker(self) -> str:
         return self.path.split(".")[2]
-    
+
     def __read_json(self):
         self.dataframe = pd.read_json(self.path, lines=True)
 
@@ -62,31 +62,26 @@ class Extraction():
         return self.dataframe
 
     def __read_json_chunked(self) -> None:
-        """Read github data from web with read_json to pandas DataFrame"""
-        storage_options = {'User-Agent': 'pandas'}
-
-        """
-
-        storage_options (optional)
-        Extra options that make sense for a particular storage connection, 
-        e.g. host, port, username, password, etc. 
-        
-        For HTTP(S) URLs the key-value pairs are forwarded to urllib.request.Request as header options.
-
-        """
+        storage_options = {"User-Agent": "pandas"}
 
         chunk_size = 50000
-        with pd.read_json(self.url, lines=True, storage_options=storage_options, chunksize=chunk_size, compression="gzip") as reader: 
+        with pd.read_json(
+            self.url,
+            lines=True,
+            storage_options=storage_options,
+            chunksize=chunk_size,
+            compression="gzip",
+        ) as reader:
             for chunk in reader:
                 self.dataframe = pd.concat([self.dataframe, chunk], ignore_index=True)
 
     def investigate_schema(self):
-        pd.set_option('display.max_columns', None)
+        pd.set_option("display.max_columns", None)
 
         # looking at DataFrame head data
         print("df head data \n", self.dataframe.head())
 
-        # looking at DataFrame schema 
+        # looking at DataFrame schema
         print("df info \n", self.dataframe.info())
 
         if self.extension == "json":
@@ -101,8 +96,6 @@ class Extraction():
             # file csv and parquet handler
 
             print(self.dataframe["store_and_fwd_flag"])
-    
-        
 
     def cast_data(self):
         if self.extension == "json":
@@ -112,25 +105,36 @@ class Extraction():
             self.dataframe["created_at"] = pd.to_datetime(self.dataframe["created_at"])
         else:
             # file csv and parquet cast data handler
-            self.dataframe["passenger_count"] = self.dataframe["passenger_count"].astype("Int8")
-            
-            self.dataframe["store_and_fwd_flag"] = self.dataframe["store_and_fwd_flag"].replace(["N", "Y"], [False, True])
-            self.dataframe["store_and_fwd_flag"] = self.dataframe["store_and_fwd_flag"].astype("boolean")
-            
-            self.dataframe["tpep_pickup_datetime"] = pd.to_datetime(self.dataframe["tpep_pickup_datetime"])
-            self.dataframe["tpep_dropoff_datetime"] = pd.to_datetime(self.dataframe["tpep_dropoff_datetime"])
+            self.dataframe["passenger_count"] = self.dataframe[
+                "passenger_count"
+            ].astype("Int8")
+
+            self.dataframe["store_and_fwd_flag"] = self.dataframe[
+                "store_and_fwd_flag"
+            ].replace(["N", "Y"], [False, True])
+            self.dataframe["store_and_fwd_flag"] = self.dataframe[
+                "store_and_fwd_flag"
+            ].astype("boolean")
+
+            self.dataframe["tpep_pickup_datetime"] = pd.to_datetime(
+                self.dataframe["tpep_pickup_datetime"]
+            )
+            self.dataframe["tpep_dropoff_datetime"] = pd.to_datetime(
+                self.dataframe["tpep_dropoff_datetime"]
+            )
             # pass
-    
-class Load():
+
+
+class Load:
     # https://www.geeksforgeeks.org/how-to-insert-a-pandas-dataframe-to-an-existing-postgresql-table/
     def __init__(self) -> None:
         self.df = pd.DataFrame
         self.db_name = ""
         self.engine = None
         self.connection = None
-    
+
     def __create_connection(self):
-        from sqlalchemy import create_engine 
+        from sqlalchemy import create_engine
 
         user = "postgres"
         password = "admin"
@@ -139,7 +143,7 @@ class Load():
         port = 5432
         conn_string = f"postgresql://{user}:{password}@{host}:{port}/{database}"
 
-        self.engine = create_engine(conn_string) 
+        self.engine = create_engine(conn_string)
 
     def to_postgres(self, db_name: str, data: pd.DataFrame):
         from sqlalchemy.types import BigInteger, String, JSON, DateTime, Boolean
@@ -157,12 +161,22 @@ class Load():
                 "payload": JSON,
                 "public": Boolean,
                 "created_at": DateTime,
-                "org": JSON
+                "org": JSON,
             }
 
-            data.to_sql(name=self.db_name, con=self.engine, if_exists="replace", index=False, schema="public", dtype=df_schema, method=None, chunksize=5000)
+            data.to_sql(
+                name=self.db_name,
+                con=self.engine,
+                if_exists="replace",
+                index=False,
+                schema="public",
+                dtype=df_schema,
+                method=None,
+                chunksize=5000,
+            )
         except SQLAlchemyError as err:
             print("error >> ", err.__cause__)
+
 
 def main():
     extract = Extraction()
@@ -171,7 +185,6 @@ def main():
     # file_path = "./dataset/2017-10-02-1.json"
     # file_path = "./dataset/yellow_tripdata_2020-07.csv"
     # df_result = extract.local_file(file_path)
-
 
     # read data from github dataset to dataframe
     year, month, day, hour = 2023, 10, 1, 1
